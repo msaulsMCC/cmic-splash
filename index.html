@@ -3,15 +3,17 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
     <title>Martin Concrete | CMiC</title>
 
     <style>
-        html, body {
-            margin: 0;
+        html,
+        body {
             width: 100%;
             height: 100%;
+            margin: 0;
             overflow: hidden;
-            background: #000;
+            background: black;
             font-family: Arial, sans-serif;
         }
 
@@ -20,90 +22,308 @@
             width: 100vw;
             height: 100vh;
             overflow: hidden;
-            background: #000;
         }
 
+        /* Full-screen background video */
         .background-video {
             position: absolute;
             top: 50%;
             left: 50%;
+
             width: 100%;
             height: 100%;
+
             object-fit: cover;
             transform: translate(-50%, -50%);
-            pointer-events: none;
+
+            z-index: 1;
         }
 
-        .video-shade {
+        /* Slightly darkens the video */
+        .video-overlay {
             position: absolute;
             inset: 0;
-            z-index: 5;
-            background: rgba(0, 0, 0, 0.12);
+
+            background: rgba(0, 0, 0, 0.2);
+            z-index: 2;
             pointer-events: none;
         }
 
-        .brand {
+        /* Logo is 25% smaller than the original 520px version */
+        .logo {
             position: absolute;
             top: 50%;
             left: 50%;
-            z-index: 10;
+
+            width: 390px;
+            max-width: 67.5%;
+
             transform: translate(-50%, -50%);
+
+            z-index: 10;
             pointer-events: none;
+            user-select: none;
         }
 
-        .brand-logo {
-            display: block;
-            width: clamp(220px, 35vw, 520px);
-            max-width: 85vw;
-            max-height: 70vh;
-            object-fit: contain;
-            filter: drop-shadow(0 2px 14px rgba(0, 0, 0, 0.6));
+        /*
+         * JavaScript controls left and top while the logo is bouncing,
+         * so the centering transform must be removed.
+         */
+        .logo.is-bouncing {
+            transform: none;
         }
 
-        .site-link {
+        /* Martin Concrete link */
+        .website-link {
             position: absolute;
             left: 50%;
             bottom: 16px;
-            z-index: 20;
+
             transform: translateX(-50%);
+
             padding: 12px 18px;
             border-radius: 10px;
-            color: #fff;
+
             background: rgba(0, 0, 0, 0.5);
             backdrop-filter: blur(4px);
-            text-decoration: none;
+
+            color: white;
             font-size: clamp(14px, 1.15vw, 18px);
-            white-space: nowrap;
+            text-decoration: none;
+
+            z-index: 20;
         }
 
-        .site-link:hover {
-            background: rgba(0, 0, 0, 0.68);
+        .website-link:hover {
+            background: rgba(0, 0, 0, 0.7);
             text-decoration: underline;
+        }
+
+        /* Subtle bottom-right toggle */
+        .bounce-control {
+            position: absolute;
+            right: 16px;
+            bottom: 16px;
+
+            display: flex;
+            align-items: center;
+            gap: 7px;
+
+            padding: 9px 11px;
+            border-radius: 8px;
+
+            background: rgba(0, 0, 0, 0.55);
+            color: white;
+
+            font-size: 13px;
+            cursor: pointer;
+
+            opacity: 0.15;
+            transition: opacity 0.2s ease;
+
+            z-index: 30;
+            user-select: none;
+        }
+
+        .bounce-control:hover,
+        .bounce-control:focus-within {
+            opacity: 1;
+        }
+
+        .bounce-control input {
+            width: 16px;
+            height: 16px;
+            margin: 0;
+            cursor: pointer;
+            accent-color: #f58220;
         }
     </style>
 </head>
 
 <body>
-    <main class="hero">
-        <video class="background-video" autoplay muted loop playsinline preload="auto">
-            <source src="martin-background.mp4" type="video/mp4">
-        </video>
 
-        <div class="video-shade"></div>
+<div class="hero" id="hero">
 
-        <div class="brand">
-            <img
-                class="brand-logo"
-                src="BYOL-Round-Logo-no-whitespace.png"
-                alt="Martin Concrete">
-        </div>
+    <video
+        class="background-video"
+        autoplay
+        muted
+        loop
+        playsinline
+        preload="auto"
+    >
+        <source
+            src="YOUR-CURRENT-VIDEO.mp4"
+            type="video/mp4"
+        >
+    </video>
 
-        <a class="site-link"
-           href="https://www.martinconcrete.com/"
-           target="_blank"
-           rel="noopener noreferrer">
-            Visit Martin Concrete
-        </a>
-    </main>
+    <div class="video-overlay"></div>
+
+    <img
+        src="BYOL-Round-Logo-no-whitespace.png"
+        class="logo"
+        id="martinLogo"
+        alt="Martin Concrete"
+    >
+
+    <a
+        class="website-link"
+        href="https://www.martinconcrete.com/"
+        target="_blank"
+        rel="noopener noreferrer"
+    >
+        Visit Martin Concrete
+    </a>
+
+    <label class="bounce-control">
+        <input type="checkbox" id="bounceToggle">
+        <span>Bounce logo</span>
+    </label>
+
+</div>
+
+<script>
+(function () {
+    const hero = document.getElementById("hero");
+    const logo = document.getElementById("martinLogo");
+    const toggle = document.getElementById("bounceToggle");
+
+    const STORAGE_KEY = "martinLogoBounceEnabled";
+
+    // Movement speed in pixels per second.
+    const SPEED = 85;
+
+    let x = 0;
+    let y = 0;
+
+    let velocityX = SPEED;
+    let velocityY = SPEED * 0.8;
+
+    let animationFrame = null;
+    let previousTime = null;
+
+    function centerLogo() {
+        logo.classList.remove("is-bouncing");
+
+        logo.style.left = "50%";
+        logo.style.top = "50%";
+    }
+
+    function prepareBounce() {
+        const heroBox = hero.getBoundingClientRect();
+        const logoBox = logo.getBoundingClientRect();
+
+        // Begin from approximately the current centered position.
+        x = (heroBox.width - logoBox.width) / 2;
+        y = (heroBox.height - logoBox.height) / 2;
+
+        logo.classList.add("is-bouncing");
+
+        logo.style.left = `${x}px`;
+        logo.style.top = `${y}px`;
+
+        previousTime = null;
+    }
+
+    function animate(currentTime) {
+        if (!toggle.checked) {
+            animationFrame = null;
+            return;
+        }
+
+        if (previousTime === null) {
+            previousTime = currentTime;
+        }
+
+        // Limit unusually large jumps when the browser tab was inactive.
+        const elapsedSeconds = Math.min(
+            (currentTime - previousTime) / 1000,
+            0.05
+        );
+
+        previousTime = currentTime;
+
+        const heroBox = hero.getBoundingClientRect();
+        const logoBox = logo.getBoundingClientRect();
+
+        const maxX = Math.max(0, heroBox.width - logoBox.width);
+        const maxY = Math.max(0, heroBox.height - logoBox.height);
+
+        x += velocityX * elapsedSeconds;
+        y += velocityY * elapsedSeconds;
+
+        if (x <= 0) {
+            x = 0;
+            velocityX = Math.abs(velocityX);
+        } else if (x >= maxX) {
+            x = maxX;
+            velocityX = -Math.abs(velocityX);
+        }
+
+        if (y <= 0) {
+            y = 0;
+            velocityY = Math.abs(velocityY);
+        } else if (y >= maxY) {
+            y = maxY;
+            velocityY = -Math.abs(velocityY);
+        }
+
+        logo.style.left = `${x}px`;
+        logo.style.top = `${y}px`;
+
+        animationFrame = requestAnimationFrame(animate);
+    }
+
+    function startBounce() {
+        if (animationFrame !== null) {
+            cancelAnimationFrame(animationFrame);
+        }
+
+        prepareBounce();
+        animationFrame = requestAnimationFrame(animate);
+    }
+
+    function stopBounce() {
+        if (animationFrame !== null) {
+            cancelAnimationFrame(animationFrame);
+            animationFrame = null;
+        }
+
+        previousTime = null;
+        centerLogo();
+    }
+
+    toggle.addEventListener("change", function () {
+        localStorage.setItem(
+            STORAGE_KEY,
+            String(toggle.checked)
+        );
+
+        if (toggle.checked) {
+            startBounce();
+        } else {
+            stopBounce();
+        }
+    });
+
+    window.addEventListener("resize", function () {
+        if (toggle.checked) {
+            prepareBounce();
+        }
+    });
+
+    // Restore the user's last choice on this browser.
+    toggle.checked =
+        localStorage.getItem(STORAGE_KEY) === "true";
+
+    if (toggle.checked) {
+        startBounce();
+    } else {
+        centerLogo();
+    }
+})();
+</script>
+
 </body>
 </html>
