@@ -51,6 +51,10 @@
             pointer-events: none;
         }
 
+        .brand.is-bouncing {
+            transform: none;
+        }
+
         .brand-logo {
             display: block;
             width: clamp(220px, 35vw, 520px);
@@ -80,18 +84,50 @@
             background: rgba(0, 0, 0, 0.68);
             text-decoration: underline;
         }
+
+        .bounce-control {
+            position: absolute;
+            right: 16px;
+            bottom: 16px;
+            z-index: 30;
+            display: flex;
+            align-items: center;
+            gap: 7px;
+            padding: 9px 11px;
+            border-radius: 8px;
+            background: rgba(0, 0, 0, 0.55);
+            color: #fff;
+            font-size: 13px;
+            cursor: pointer;
+            opacity: 0.15;
+            transition: opacity 0.2s ease;
+            user-select: none;
+        }
+
+        .bounce-control:hover,
+        .bounce-control:focus-within {
+            opacity: 1;
+        }
+
+        .bounce-control input {
+            width: 16px;
+            height: 16px;
+            margin: 0;
+            cursor: pointer;
+            accent-color: #f58220;
+        }
     </style>
 </head>
 
 <body>
-    <main class="hero">
+    <main class="hero" id="hero">
         <video class="background-video" autoplay muted loop playsinline preload="auto">
             <source src="martin-background.mp4" type="video/mp4">
         </video>
 
         <div class="video-shade"></div>
 
-        <div class="brand">
+        <div class="brand" id="martinBrand">
             <img
                 class="brand-logo"
                 src="Martin_Badge_Pumpkin.png"
@@ -104,6 +140,136 @@
            rel="noopener noreferrer">
             Visit Martin Concrete
         </a>
+
+        <label class="bounce-control">
+            <input type="checkbox" id="bounceToggle">
+            <span>Bounce logo</span>
+        </label>
     </main>
+
+    <script>
+    (function () {
+        const hero = document.getElementById("hero");
+        const brand = document.getElementById("martinBrand");
+        const toggle = document.getElementById("bounceToggle");
+        const STORAGE_KEY = "martinLogoBounceEnabled";
+        const SPEED = 85;
+
+        let x = 0;
+        let y = 0;
+        let velocityX = SPEED;
+        let velocityY = SPEED * 0.8;
+        let animationFrame = null;
+        let previousTime = null;
+
+        function centerLogo() {
+            brand.classList.remove("is-bouncing");
+            brand.style.left = "50%";
+            brand.style.top = "50%";
+        }
+
+        function prepareBounce() {
+            const heroBox = hero.getBoundingClientRect();
+            const brandBox = brand.getBoundingClientRect();
+
+            x = (heroBox.width - brandBox.width) / 2;
+            y = (heroBox.height - brandBox.height) / 2;
+
+            brand.classList.add("is-bouncing");
+            brand.style.left = `${x}px`;
+            brand.style.top = `${y}px`;
+            previousTime = null;
+        }
+
+        function animate(currentTime) {
+            if (!toggle.checked) {
+                animationFrame = null;
+                return;
+            }
+
+            if (previousTime === null) {
+                previousTime = currentTime;
+            }
+
+            const elapsedSeconds = Math.min(
+                (currentTime - previousTime) / 1000,
+                0.05
+            );
+
+            previousTime = currentTime;
+
+            const heroBox = hero.getBoundingClientRect();
+            const brandBox = brand.getBoundingClientRect();
+            const maxX = Math.max(0, heroBox.width - brandBox.width);
+            const maxY = Math.max(0, heroBox.height - brandBox.height);
+
+            x += velocityX * elapsedSeconds;
+            y += velocityY * elapsedSeconds;
+
+            if (x <= 0) {
+                x = 0;
+                velocityX = Math.abs(velocityX);
+            } else if (x >= maxX) {
+                x = maxX;
+                velocityX = -Math.abs(velocityX);
+            }
+
+            if (y <= 0) {
+                y = 0;
+                velocityY = Math.abs(velocityY);
+            } else if (y >= maxY) {
+                y = maxY;
+                velocityY = -Math.abs(velocityY);
+            }
+
+            brand.style.left = `${x}px`;
+            brand.style.top = `${y}px`;
+            animationFrame = requestAnimationFrame(animate);
+        }
+
+        function startBounce() {
+            if (animationFrame !== null) {
+                cancelAnimationFrame(animationFrame);
+            }
+
+            prepareBounce();
+            animationFrame = requestAnimationFrame(animate);
+        }
+
+        function stopBounce() {
+            if (animationFrame !== null) {
+                cancelAnimationFrame(animationFrame);
+                animationFrame = null;
+            }
+
+            previousTime = null;
+            centerLogo();
+        }
+
+        toggle.addEventListener("change", function () {
+            localStorage.setItem(STORAGE_KEY, String(toggle.checked));
+
+            if (toggle.checked) {
+                startBounce();
+            } else {
+                stopBounce();
+            }
+        });
+
+        window.addEventListener("resize", function () {
+            if (toggle.checked) {
+                prepareBounce();
+            }
+        });
+
+        toggle.checked = localStorage.getItem(STORAGE_KEY) === "true";
+
+        if (toggle.checked) {
+            startBounce();
+        } else {
+            centerLogo();
+        }
+    })();
+    </script>
 </body>
 </html>
